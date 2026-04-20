@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
@@ -19,6 +18,7 @@ export async function runMigrations(url: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  await import('dotenv/config');
   const url = process.env.DATABASE_URL;
   if (!url) {
     console.error('DATABASE_URL is not set');
@@ -28,7 +28,13 @@ async function main(): Promise<void> {
   console.log('Migrations applied.');
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+const isDirectRun =
+  process.argv[1] !== undefined &&
+  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+
+if (isDirectRun) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
