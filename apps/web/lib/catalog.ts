@@ -18,17 +18,14 @@ export type Series = {
   episodes: Episode[];
 };
 
-// HLS streams used as video source; player will use object-fit: cover to crop to 9:16
-const HLS = [
-  'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-  'https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8',
-  'https://bitdash-a.akamaihd.net/content/MI201109210084_1/m3u8s/f08e80da-bf1d-4e3d-8899-f0f6155f6efa.m3u8',
-  'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8',
-  'https://devstreaming-cdn.apple.com/videos/streaming/examples/bipbop_16x9/bipbop_16x9_variant.m3u8',
+// Vertical 9:16 MP4s from Google's ExoPlayer public test CDN. Real portrait content.
+const VIDEOS = [
+  'https://storage.googleapis.com/exoplayer-test-media-1/mp4/portrait_avc_aac.mp4',
+  'https://storage.googleapis.com/exoplayer-test-media-1/mp4/portrait_4k60.mp4',
 ];
 
 function hls(i: number): string {
-  return HLS[i % HLS.length]!;
+  return VIDEOS[i % VIDEOS.length]!;
 }
 
 function picsum(seed: string, w: number, h: number): string {
