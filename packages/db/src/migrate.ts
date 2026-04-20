@@ -3,9 +3,12 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { config as dotenvConfig } from 'dotenv';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_FOLDER = path.resolve(__dirname, '..', 'drizzle');
+// Repo root is 3 levels up: src/ -> db/ -> packages/ -> root
+const REPO_ROOT = path.resolve(__dirname, '..', '..', '..');
 
 export async function runMigrations(url: string): Promise<void> {
   const sql = postgres(url, { max: 1 });
@@ -18,7 +21,7 @@ export async function runMigrations(url: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  await import('dotenv/config');
+  dotenvConfig({ path: path.resolve(REPO_ROOT, '.env') });
   const url = process.env.DATABASE_URL;
   if (!url) {
     console.error('DATABASE_URL is not set');
