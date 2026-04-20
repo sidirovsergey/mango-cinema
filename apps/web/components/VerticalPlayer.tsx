@@ -1,14 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Episode } from '@/lib/episodes';
+import Link from 'next/link';
+import type { Episode } from '@/lib/catalog';
 
 interface Props {
   episodes: Episode[];
+  startIndex?: number;
+  seriesSlug: string;
 }
 
-export default function VerticalPlayer({ episodes }: Props) {
-  const [index, setIndex] = useState(0);
+export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug }: Props) {
+  const [index, setIndex] = useState(startIndex);
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -18,6 +21,7 @@ export default function VerticalPlayer({ episodes }: Props) {
   const wheelCooldown = useRef(false);
 
   const episode = episodes[index]!;
+  const isLocked = !episode.isFree;
 
   const goTo = useCallback(
     (next: number) => {
@@ -34,40 +38,58 @@ export default function VerticalPlayer({ episodes }: Props) {
   const nextEpisode = useCallback(() => goTo(index + 1), [index, goTo]);
   const prevEpisode = useCallback(() => goTo(index - 1), [index, goTo]);
 
-  // HLS setup
+  // Video setup — MP4 or HLS
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || isLocked) {
+      setLoading(false);
+      return;
+    }
 
     setLoading(true);
 
+    const url = episode.videoUrl;
+    const isMp4 = !url.endsWith('.m3u8');
+
+    // Clean up previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (isMp4) {
+      // Direct MP4 — use object-fit: cover so horizontal video fills 9:16 frame
+      video.src = url;
+      const onLoaded = () => {
+        setLoading(false);
+        video.play().catch(() => {});
+      };
+      video.addEventListener('loadedmetadata', onLoaded, { once: true });
+      video.load();
+      return () => video.removeEventListener('loadedmetadata', onLoaded);
+    }
+
+    // HLS path
     let hls: import('hls.js').default | null = null;
 
     const initHls = async () => {
       const Hls = (await import('hls.js')).default;
 
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-
       if (Hls.isSupported()) {
         hls = new Hls({ enableWorker: true });
         hlsRef.current = hls;
-        hls.loadSource(episode.hlsUrl);
+        hls.loadSource(url);
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setLoading(false);
-          video.play().catch(() => {
-            // Autoplay blocked — user must tap
-          });
+          video.play().catch(() => {});
         });
         hls.on(Hls.Events.ERROR, (_evt, data) => {
           if (data.fatal) setLoading(false);
         });
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Safari native HLS
-        video.src = episode.hlsUrl;
+        video.src = url;
         video.addEventListener(
           'loadedmetadata',
           () => {
@@ -87,7 +109,7 @@ export default function VerticalPlayer({ episodes }: Props) {
         hlsRef.current = null;
       }
     };
-  }, [episode.hlsUrl]);
+  }, [episode.videoUrl, isLocked]);
 
   // Progress tracking
   useEffect(() => {
@@ -109,9 +131,7 @@ export default function VerticalPlayer({ episodes }: Props) {
     (e: React.WheelEvent) => {
       if (wheelCooldown.current) return;
       wheelCooldown.current = true;
-      setTimeout(() => {
-        wheelCooldown.current = false;
-      }, 600);
+      setTimeout(() => { wheelCooldown.current = false; }, 600);
 
       if (e.deltaY > 0) nextEpisode();
       else if (e.deltaY < 0) prevEpisode();
@@ -143,8 +163,9 @@ export default function VerticalPlayer({ episodes }: Props) {
     [nextEpisode, prevEpisode],
   );
 
-  // Tap to play/pause (center) or seek (left/right thirds)
+  // Tap to play/pause (only on unlocked episodes)
   const onTap = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (isLocked) return;
     const video = videoRef.current;
     if (!video) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -152,13 +173,10 @@ export default function VerticalPlayer({ episodes }: Props) {
     const third = rect.width / 3;
 
     if (x < third) {
-      // Left third — seek back 10s
       video.currentTime = Math.max(0, video.currentTime - 10);
     } else if (x > third * 2) {
-      // Right third — seek forward 10s
       video.currentTime = Math.min(video.duration || 0, video.currentTime + 10);
     } else {
-      // Center — toggle play/pause
       if (video.paused) {
         video.play().catch(() => {});
         setPaused(false);
@@ -167,7 +185,7 @@ export default function VerticalPlayer({ episodes }: Props) {
         setPaused(true);
       }
     }
-  }, []);
+  }, [isLocked]);
 
   return (
     <div
@@ -189,59 +207,84 @@ export default function VerticalPlayer({ episodes }: Props) {
         }}
         onClick={onTap}
       >
-        {/* Video element */}
+        {/* Video element — object-cover crops horizontal content to fill 9:16 */}
         <video
           ref={videoRef}
-          className="absolute inset-0 h-full w-full object-contain"
+          className="absolute inset-0 h-full w-full object-cover"
           playsInline
           autoPlay
           muted
           loop
         />
 
-        {/* Progress bar — top of frame */}
+        {/* Locked episode overlay */}
+        {isLocked && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-gradient-to-t from-black via-black/80 to-black/40 px-6">
+            <div className="text-4xl mb-3">🔒</div>
+            <p className="text-base font-bold text-white text-center mb-1">
+              Доступ по подписке
+            </p>
+            <p className="text-xs text-white/50 text-center mb-6">
+              Эпизод {episode.number} · {episode.title}
+            </p>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                alert('В MVP: оплата через ЮKassa');
+              }}
+              className="rounded-xl bg-mango px-8 py-3 text-sm font-bold text-white active:scale-95 transition-transform"
+            >
+              Подписаться
+            </button>
+          </div>
+        )}
+
+        {/* Progress bar — top */}
         <div className="absolute left-0 right-0 top-0 z-20 h-0.5 bg-white/20">
           <div
-            className="h-full bg-orange-400 transition-all duration-300"
+            className="h-full bg-mango transition-all duration-300"
             style={{ width: `${progress * 100}%` }}
           />
         </div>
 
         {/* Loading spinner */}
-        {loading && (
+        {loading && !isLocked && (
           <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/40">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-orange-400" />
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-mango" />
           </div>
         )}
 
         {/* Paused indicator */}
-        {paused && !loading && (
+        {paused && !loading && !isLocked && (
           <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
             <div className="rounded-full bg-black/50 p-4">
-              <svg
-                className="h-10 w-10 text-white"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
+              <svg className="h-10 w-10 text-white" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
           </div>
         )}
 
-        {/* Top-left wordmark */}
-        <div className="absolute left-4 top-4 z-20">
-          <span
-            className="text-sm font-bold tracking-wider"
-            style={{ color: '#FF6B35' }}
+        {/* Top bar: back button left, wordmark right */}
+        <div className="absolute left-0 right-0 top-0 z-20 flex items-center justify-between px-4 pt-4">
+          <Link
+            href={`/series/${seriesSlug}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/50"
+            aria-label="Назад"
           >
+            <svg className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </Link>
+
+          <span className="text-sm font-bold tracking-wider text-mango">
             MANGO CINEMA
           </span>
         </div>
 
-        {/* Right-side action icons (non-functional) */}
+        {/* Right-side action icons */}
         <div className="absolute bottom-24 right-3 z-20 flex flex-col items-center gap-5">
-          {/* Heart */}
           <button
             className="flex flex-col items-center gap-1 text-white"
             aria-label="Нравится"
@@ -253,7 +296,6 @@ export default function VerticalPlayer({ episodes }: Props) {
             <span className="text-xs font-semibold">12K</span>
           </button>
 
-          {/* Comment */}
           <button
             className="flex flex-col items-center gap-1 text-white"
             aria-label="Комментарии"
@@ -265,7 +307,6 @@ export default function VerticalPlayer({ episodes }: Props) {
             <span className="text-xs font-semibold">348</span>
           </button>
 
-          {/* Share */}
           <button
             className="flex flex-col items-center gap-1 text-white"
             aria-label="Поделиться"
@@ -298,23 +339,20 @@ export default function VerticalPlayer({ episodes }: Props) {
           </div>
         </div>
 
-        {/* Bottom overlay: series + episode title */}
-        <div className="absolute bottom-6 left-4 right-16 z-20 select-none">
-          <p
-            className="text-sm font-semibold tracking-wide"
-            style={{ color: '#FF6B35' }}
-          >
-            {episode.seriesTitle}
-          </p>
-          <p className="mt-0.5 text-base font-medium leading-snug text-white drop-shadow">
-            {episode.title}
-          </p>
-
-          {/* Swipe hint */}
-          <p className="mt-2 text-xs text-white/40">
-            Свайп вверх — следующий эпизод
-          </p>
-        </div>
+        {/* Bottom overlay: episode title */}
+        {!isLocked && (
+          <div className="absolute bottom-6 left-4 right-16 z-20 select-none">
+            <p className="text-sm font-semibold tracking-wide text-mango">
+              {episode.number} эпизод
+            </p>
+            <p className="mt-0.5 text-base font-medium leading-snug text-white drop-shadow">
+              {episode.title}
+            </p>
+            <p className="mt-2 text-xs text-white/40">
+              Свайп вверх — следующий эпизод
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
