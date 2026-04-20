@@ -38,6 +38,9 @@ importers:
       fastify:
         specifier: 4.28.1
         version: 4.28.1
+      fastify-plugin:
+        specifier: ^5.1.0
+        version: 5.1.0
       ioredis:
         specifier: 5.4.1
         version: 5.4.1
@@ -48,6 +51,9 @@ importers:
         specifier: 3.23.8
         version: 3.23.8
     devDependencies:
+      '@testcontainers/postgresql':
+        specifier: 10.13.2
+        version: 10.13.2
       '@types/node':
         specifier: 20.16.11
         version: 20.16.11
@@ -899,6 +905,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@testcontainers/postgresql@10.13.2':
+    resolution: {integrity: sha512-xd3u/rL8FrOBHFMu1aU+2d4sqPz9ffEb19ITtopT/tyBZWW9qCsgR6wSg0r2BJUd+2hT4UR5nR5cymi+ROkehw==}
+
   '@types/docker-modem@3.0.6':
     resolution: {integrity: sha512-yKpAGEuKRSS8wwx0joknWxsmLha78wNMe9R2S3UNsVOkZded8UqOrV8KoeDXoXsjndxwyF3eIhyClGbO1SEhEg==}
 
@@ -1534,6 +1543,9 @@ packages:
 
   fast-uri@3.1.0:
     resolution: {integrity: sha512-iPeeDKJSWf4IEOasVVrknXpaBV0IApz/gp7S2bb7Z4Lljbl2MGJRqInZiUrQwV16cpzw/D3S5j5Julj/gT52AA==}
+
+  fastify-plugin@5.1.0:
+    resolution: {integrity: sha512-FAIDA8eovSt5qcDgcBvDuX/v0Cjz0ohGhENZ/wpc3y+oZCY2afZ9Baqql3g/lC+OHRnciQol4ww7tuthOb9idw==}
 
   fastify@4.28.1:
     resolution: {integrity: sha512-kFWUtpNr4i7t5vY2EJPCN2KgMVpuqfU4NjnJNCgiNB900oiDeYqaNDRcAfeBbOF5hGixixxcKnOU4KN9z6QncQ==}
@@ -2764,6 +2776,15 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.60.2':
     optional: true
 
+  '@testcontainers/postgresql@10.13.2':
+    dependencies:
+      testcontainers: 10.13.2
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
+
   '@types/docker-modem@3.0.6':
     dependencies:
       '@types/node': 20.16.11
@@ -3451,6 +3472,8 @@ snapshots:
   fast-uri@2.4.0: {}
 
   fast-uri@3.1.0: {}
+
+  fastify-plugin@5.1.0: {}
 
   fastify@4.28.1:
     dependencies:
