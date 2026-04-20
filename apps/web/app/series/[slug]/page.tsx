@@ -5,6 +5,8 @@ import { CATALOG } from '@/lib/catalog';
 import Header from '@/components/Header';
 import EpisodeListItem from '@/components/EpisodeListItem';
 import WatchlistButton from '@/components/WatchlistButton';
+import ContentRow from '@/components/ContentRow';
+import { getSimilarSeries } from '@/lib/recommendations';
 
 interface Props {
   params: { slug: string };
@@ -79,6 +81,11 @@ export default function SeriesPage({ params }: Props) {
             <EpisodeListItem key={ep.id} episode={ep} seriesSlug={series.slug} />
           ))}
         </div>
+      </div>
+
+      {/* Similar series */}
+      <div className="pb-10">
+        <ContentRow title="Похожие сериалы" series={getSimilarSeries(series.slug, 4)} />
       </div>
     </div>
   );
