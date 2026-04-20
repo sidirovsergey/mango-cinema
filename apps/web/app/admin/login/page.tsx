@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { setAuthed } from '../../../lib/admin-store';
+import { logAudit } from '../../../lib/admin-audit-store';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,7 +15,11 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setTimeout(() => {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('mango-admin-email', email);
+      }
       setAuthed(true);
+      logAudit('login', email);
       router.push('/admin');
     }, 400);
   }

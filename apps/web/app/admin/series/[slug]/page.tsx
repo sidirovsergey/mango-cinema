@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useRef, FormEvent, DragEvent } from 'react';
 import { useParams } from 'next/navigation';
 import { CATALOG, Episode } from '../../../../lib/catalog';
 import { getSeriesOverrides, setSeriesOverride } from '../../../../lib/admin-store';
+import { logAudit } from '../../../../lib/admin-audit-store';
+
+const ORDER_KEY_PREFIX = 'mango-admin-episode-order-';
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -17,6 +20,35 @@ function parseDuration(str: string): number {
     return parseInt(parts[0]!, 10) * 60 + parseInt(parts[1]!, 10);
   }
   return 0;
+}
+
+function loadEpisodeOrder(slug: string): string[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(ORDER_KEY_PREFIX + slug);
+    return raw ? (JSON.parse(raw) as string[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveEpisodeOrder(slug: string, ids: string[]): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(ORDER_KEY_PREFIX + slug, JSON.stringify(ids));
+}
+
+function applyOrder(episodes: Episode[], order: string[] | null): Episode[] {
+  if (!order || order.length === 0) return episodes;
+  const map = new Map(episodes.map((ep) => [ep.id, ep]));
+  const sorted: Episode[] = [];
+  for (const id of order) {
+    const ep = map.get(id);
+    if (ep) sorted.push(ep);
+    map.delete(id);
+  }
+  // append any episodes not in saved order
+  for (const ep of map.values()) sorted.push(ep);
+  return sorted.map((ep, i) => ({ ...ep, number: i + 1 }));
 }
 
 export default function SeriesEditorPage() {
@@ -34,6 +66,10 @@ export default function SeriesEditorPage() {
   const [episodes, setEpisodes] = useState<Episode[]>([]);
   const [toast, setToast] = useState(false);
 
+  // Drag state
+  const dragIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   useEffect(() => {
     if (!base) return;
     const overrides = getSeriesOverrides();
@@ -44,7 +80,9 @@ export default function SeriesEditorPage() {
     setGenres(merged.genres.join(', '));
     setPosterUrl(merged.posterUrl);
     setBannerUrl(merged.bannerUrl);
-    setEpisodes(overrides[slug]?.episodes ?? base.episodes);
+    const rawEps = overrides[slug]?.episodes ?? base.episodes;
+    const savedOrder = loadEpisodeOrder(slug);
+    setEpisodes(applyOrder(rawEps, savedOrder));
   }, [base, slug]);
 
   function handleSave(e: FormEvent) {
@@ -58,17 +96,22 @@ export default function SeriesEditorPage() {
       bannerUrl,
       episodes,
     });
+    logAudit('series.update', slug, {
+      fields: ['title', 'tagline', 'description', 'genres', 'posterUrl', 'bannerUrl'],
+    });
     setToast(true);
     setTimeout(() => setToast(false), 2500);
   }
 
   function handleDeleteEpisode(id: string) {
     setEpisodes((prev) => prev.filter((ep) => ep.id !== id));
+    logAudit('episode.delete', id);
   }
 
   function handleAddEpisode() {
+    const newId = `${slug}-ep-new-${Date.now()}`;
     const newEp: Episode = {
-      id: `${slug}-ep-new-${Date.now()}`,
+      id: newId,
       number: episodes.length + 1,
       title: 'Новый эпизод',
       duration: 180,
@@ -76,12 +119,55 @@ export default function SeriesEditorPage() {
       isFree: false,
     };
     setEpisodes((prev) => [...prev, newEp]);
+    logAudit('episode.create', newId);
   }
 
   function handleEpisodeChange(id: string, field: keyof Episode, value: string | boolean | number) {
     setEpisodes((prev) =>
       prev.map((ep) => (ep.id === id ? { ...ep, [field]: value } : ep))
     );
+  }
+
+  // ---- Drag handlers ----
+  function handleDragStart(e: DragEvent<HTMLTableRowElement>, index: number) {
+    dragIndexRef.current = index;
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragOver(e: DragEvent<HTMLTableRowElement>, index: number) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDragOverIndex(index);
+  }
+
+  function handleDragLeave() {
+    setDragOverIndex(null);
+  }
+
+  function handleDrop(e: DragEvent<HTMLTableRowElement>, dropIndex: number) {
+    e.preventDefault();
+    const fromIndex = dragIndexRef.current;
+    if (fromIndex === null || fromIndex === dropIndex) {
+      setDragOverIndex(null);
+      return;
+    }
+    setEpisodes((prev) => {
+      const reordered = [...prev];
+      const [moved] = reordered.splice(fromIndex, 1);
+      reordered.splice(dropIndex, 0, moved!);
+      const numbered = reordered.map((ep, i) => ({ ...ep, number: i + 1 }));
+      const newOrder = numbered.map((ep) => ep.id);
+      saveEpisodeOrder(slug, newOrder);
+      logAudit('episode.reorder', slug, { order: newOrder });
+      return numbered;
+    });
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
+  }
+
+  function handleDragEnd() {
+    dragIndexRef.current = null;
+    setDragOverIndex(null);
   }
 
   if (!base) {
@@ -182,19 +268,45 @@ export default function SeriesEditorPage() {
         </div>
 
         <div className="overflow-x-auto rounded-xl bg-zinc-900/50">
-          <table className="w-full min-w-[640px]">
+          <table className="w-full min-w-[700px]">
             <thead>
               <tr className="border-b border-zinc-800">
-                {['№', 'Название', 'Длит.', 'Бесплатный', 'Video URL', ''].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide">
+                {['', '№', 'Название', 'Длит.', 'Бесплатный', 'Video URL', ''].map((h, i) => (
+                  <th
+                    key={i}
+                    className="px-4 py-3 text-left text-xs font-medium text-zinc-400 uppercase tracking-wide"
+                  >
                     {h}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {episodes.map((ep) => (
-                <tr key={ep.id} className="border-b border-zinc-800 last:border-0">
+              {episodes.map((ep, index) => (
+                <tr
+                  key={ep.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`border-b border-zinc-800 last:border-0 transition-opacity ${
+                    dragIndexRef.current === index ? 'opacity-50' : 'opacity-100'
+                  } ${
+                    dragOverIndex === index && dragIndexRef.current !== index
+                      ? 'border-t-2 border-t-[#FF6B35]'
+                      : ''
+                  }`}
+                >
+                  <td className="px-4 py-3 w-8">
+                    <span
+                      className="text-zinc-600 hover:text-zinc-300 transition-colors cursor-grab active:cursor-grabbing select-none text-base"
+                      title="Перетащить для переупорядочивания"
+                    >
+                      ≡
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-sm text-zinc-400">{ep.number}</td>
                   <td className="px-4 py-3">
                     <input
@@ -235,7 +347,7 @@ export default function SeriesEditorPage() {
               ))}
               {episodes.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-zinc-500 text-sm">
+                  <td colSpan={7} className="px-4 py-8 text-center text-zinc-500 text-sm">
                     Нет эпизодов
                   </td>
                 </tr>

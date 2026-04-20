@@ -7,8 +7,11 @@ import { setAuthed } from '../../lib/admin-store';
 const NAV_ITEMS = [
   { href: '/admin', label: 'Dashboard' },
   { href: '/admin/series', label: 'Серии' },
+  { href: '/admin/studios', label: 'Студии' },
+  { href: '/admin/plans', label: 'Планы и монеты' },
   { href: '/admin/users', label: 'Пользователи' },
   { href: '/admin/payments', label: 'Платежи' },
+  { href: '/admin/audit', label: 'Audit log' },
 ];
 
 export default function Sidebar() {
