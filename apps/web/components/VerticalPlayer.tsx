@@ -2,15 +2,19 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import type { Episode } from '@/lib/catalog';
+import type { Episode, Series } from '@/lib/catalog';
+import { canWatchEpisode, useUser } from '@/lib/user-store';
+import EpisodePaywall from '@/components/auth/EpisodePaywall';
 
 interface Props {
   episodes: Episode[];
   startIndex?: number;
   seriesSlug: string;
+  series: Series;
 }
 
-export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug }: Props) {
+export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, series }: Props) {
+  const user = useUser();
   const [index, setIndex] = useState(startIndex);
   const [loading, setLoading] = useState(true);
   const [paused, setPaused] = useState(false);
@@ -21,7 +25,7 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug }:
   const wheelCooldown = useRef(false);
 
   const episode = episodes[index]!;
-  const isLocked = !episode.isFree;
+  const isLocked = !canWatchEpisode(episode, user);
 
   const goTo = useCallback(
     (next: number) => {
@@ -219,24 +223,13 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug }:
 
         {/* Locked episode overlay */}
         {isLocked && (
-          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-gradient-to-t from-black via-black/80 to-black/40 px-6">
-            <div className="text-4xl mb-3">🔒</div>
-            <p className="text-base font-bold text-white text-center mb-1">
-              Доступ по подписке
-            </p>
-            <p className="text-xs text-white/50 text-center mb-6">
-              Эпизод {episode.number} · {episode.title}
-            </p>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                alert('В MVP: оплата через ЮKassa');
-              }}
-              className="rounded-xl bg-mango px-8 py-3 text-sm font-bold text-white active:scale-95 transition-transform"
-            >
-              Подписаться
-            </button>
-          </div>
+          <EpisodePaywall
+            episode={episode}
+            series={series}
+            onUnlocked={() => {
+              // canWatchEpisode will re-evaluate via useUser re-render
+            }}
+          />
         )}
 
         {/* Progress bar — top */}

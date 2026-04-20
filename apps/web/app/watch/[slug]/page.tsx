@@ -23,6 +23,7 @@ export default function WatchPage({ params, searchParams }: Props) {
       episodes={series.episodes}
       startIndex={startIndex}
       seriesSlug={series.slug}
+      series={series}
     />
   );
 }

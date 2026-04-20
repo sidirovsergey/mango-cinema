@@ -1,8 +1,11 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
+import dynamic from 'next/dynamic';
 
 const inter = Inter({ subsets: ['latin', 'cyrillic'] });
+
+const GlobalModals = dynamic(() => import('@/components/auth/GlobalModals'), { ssr: false });
 
 export const metadata: Metadata = {
   title: 'Mango Cinema',
@@ -24,7 +27,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ru">
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+        <GlobalModals />
+      </body>
     </html>
   );
 }
