@@ -10,7 +10,7 @@ interface DataTableProps {
 
 export default function DataTable({ headers, children, emptyMessage = 'Нет данных' }: DataTableProps) {
   return (
-    <div className="overflow-x-auto rounded-xl bg-zinc-900/50">
+    <div className="-mx-4 md:mx-0 overflow-x-auto rounded-none md:rounded-xl bg-zinc-900/50">
       <table className="w-full min-w-[600px]">
         <thead>
           <tr className="border-b border-zinc-800">

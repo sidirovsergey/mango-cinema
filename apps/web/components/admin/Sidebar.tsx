@@ -14,18 +14,30 @@ const NAV_ITEMS = [
   { href: '/admin/audit', label: 'Audit log' },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open = false, onClose }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
 
   function handleLogout() {
     setAuthed(false);
+    onClose?.();
     router.push('/admin/login');
+  }
+
+  function handleNavClick() {
+    onClose?.();
   }
 
   return (
     <aside
-      className="fixed top-0 left-0 h-full w-60 flex flex-col"
+      className={`fixed inset-y-0 left-0 z-40 w-64 flex flex-col transform transition-transform duration-200 md:translate-x-0 md:static md:w-60 md:z-auto ${
+        open ? 'translate-x-0' : '-translate-x-full'
+      }`}
       style={{ background: '#0F0F0F', borderRight: '1px solid #1a1a1a' }}
     >
       <div className="px-6 py-5 border-b border-zinc-800">
@@ -45,6 +57,7 @@ export default function Sidebar() {
             <Link
               key={item.href}
               href={item.href}
+              onClick={handleNavClick}
               className={`flex items-center px-3 py-2 rounded-lg text-sm transition-colors ${
                 isActive
                   ? 'text-white bg-zinc-800 border-l-2 border-[#FF6B35] pl-[10px]'

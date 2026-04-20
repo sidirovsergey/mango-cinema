@@ -44,28 +44,54 @@ export default function UsersPage() {
         className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none focus:border-[#FF6B35]"
       />
 
-      <DataTable headers={['ID', 'Телефон', 'Имя', 'Подписка', 'Монеты', 'Дата']}>
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
         {pageUsers.map((u) => (
-          <TableRow key={u.id}>
-            <TableCell>
-              <span className="font-mono text-xs text-zinc-400">{u.id.slice(0, 12)}</span>
-            </TableCell>
-            <TableCell>{u.phone}</TableCell>
-            <TableCell className="text-white">{u.display_name}</TableCell>
-            <TableCell>
+          <div key={u.id} className="bg-zinc-900/50 rounded-xl px-4 py-3 space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="text-white font-medium text-sm">{u.phone}</span>
               {u.has_subscription ? (
                 <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">
                   Активна
                 </span>
               ) : (
-                <span className="text-zinc-500">—</span>
+                <span className="text-zinc-500 text-xs">Без подписки</span>
               )}
-            </TableCell>
-            <TableCell>{u.coin_balance}</TableCell>
-            <TableCell className="text-zinc-400">{formatDate(u.created_at)}</TableCell>
-          </TableRow>
+            </div>
+            <div className="text-zinc-400 text-xs">{u.display_name}</div>
+            <div className="flex items-center justify-between text-xs text-zinc-500">
+              <span className="font-mono">{u.id.slice(0, 12)}</span>
+              <span>{u.coin_balance} монет · {formatDate(u.created_at)}</span>
+            </div>
+          </div>
         ))}
-      </DataTable>
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block">
+        <DataTable headers={['ID', 'Телефон', 'Имя', 'Подписка', 'Монеты', 'Дата']}>
+          {pageUsers.map((u) => (
+            <TableRow key={u.id}>
+              <TableCell>
+                <span className="font-mono text-xs text-zinc-400">{u.id.slice(0, 12)}</span>
+              </TableCell>
+              <TableCell>{u.phone}</TableCell>
+              <TableCell className="text-white">{u.display_name}</TableCell>
+              <TableCell>
+                {u.has_subscription ? (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-500/20 text-emerald-400">
+                    Активна
+                  </span>
+                ) : (
+                  <span className="text-zinc-500">—</span>
+                )}
+              </TableCell>
+              <TableCell>{u.coin_balance}</TableCell>
+              <TableCell className="text-zinc-400">{formatDate(u.created_at)}</TableCell>
+            </TableRow>
+          ))}
+        </DataTable>
+      </div>
 
       {totalPages > 1 && (
         <div className="flex items-center gap-2">

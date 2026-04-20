@@ -98,7 +98,36 @@ export default function AuditPage() {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl bg-zinc-900/50">
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-2">
+        {entries.length === 0 ? (
+          <div className="py-12 text-center text-zinc-500 text-sm">Пока нет записей</div>
+        ) : (
+          entries.map((e) => (
+            <div key={e.id} className="bg-zinc-900/50 rounded-xl px-4 py-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span
+                  className={`text-xs font-medium px-2 py-0.5 rounded border ${actionColor(e.action)}`}
+                >
+                  {e.action}
+                </span>
+                <span className="text-xs text-zinc-500">{formatTs(e.timestamp)}</span>
+              </div>
+              <div className="text-xs text-zinc-300 font-mono">{e.target}</div>
+              <div className="text-xs text-zinc-500">{e.actor}</div>
+              {e.details && (
+                <div className="text-xs text-zinc-600 font-mono break-all">
+                  {JSON.stringify(e.details).slice(0, 80)}
+                  {JSON.stringify(e.details).length > 80 && '…'}
+                </div>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block overflow-x-auto rounded-xl bg-zinc-900/50">
         <table className="w-full min-w-[700px]">
           <thead>
             <tr className="border-b border-zinc-800">

@@ -22,7 +22,7 @@ export default function DashboardPage() {
         <p className="text-zinc-400 text-sm mt-1">Обзор платформы Mango Cinema</p>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
         {STATS.map((s) => (
           <StatCard key={s.label} label={s.label} value={s.value} />
         ))}
