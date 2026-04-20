@@ -1,0 +1,25 @@
+# Brainstorming artifacts (visual companion)
+.superpowers/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node (когда появится)
+node_modules/
+.next/
+dist/
+build/
+coverage/
+*.log
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs & runtime
+*.pid
+*.seed
