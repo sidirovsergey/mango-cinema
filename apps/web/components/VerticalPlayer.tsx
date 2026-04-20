@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { Episode, Series } from '@/lib/catalog';
 import { canWatchEpisode, useUser } from '@/lib/user-store';
 import EpisodePaywall from '@/components/auth/EpisodePaywall';
+import { getEpisodeProgress, saveEpisodeProgress } from '@/lib/progress-store';
 
 interface Props {
   episodes: Episode[];
@@ -23,6 +24,7 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
   const hlsRef = useRef<import('hls.js').default | null>(null);
   const touchStartY = useRef(0);
   const wheelCooldown = useRef(false);
+  const lastSavedAt = useRef(0);
 
   const episode = episodes[index]!;
   const isLocked = !canWatchEpisode(episode, user);
@@ -66,6 +68,11 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
       video.src = url;
       const onLoaded = () => {
         setLoading(false);
+        // Resume from stored progress if < 95%
+        const stored = getEpisodeProgress(episode.id);
+        if (stored && video.duration > 0 && stored.positionSec < video.duration * 0.95) {
+          video.currentTime = stored.positionSec;
+        }
         video.play().catch(() => {});
       };
       video.addEventListener('loadedmetadata', onLoaded, { once: true });
@@ -86,6 +93,11 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
         hls.attachMedia(video);
         hls.on(Hls.Events.MANIFEST_PARSED, () => {
           setLoading(false);
+          // Resume from stored progress if < 95%
+          const stored = getEpisodeProgress(episode.id);
+          if (stored && video.duration > 0 && stored.positionSec < video.duration * 0.95) {
+            video.currentTime = stored.positionSec;
+          }
           video.play().catch(() => {});
         });
         hls.on(Hls.Events.ERROR, (_evt, data) => {
@@ -98,6 +110,10 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
           'loadedmetadata',
           () => {
             setLoading(false);
+            const stored = getEpisodeProgress(episode.id);
+            if (stored && video.duration > 0 && stored.positionSec < video.duration * 0.95) {
+              video.currentTime = stored.positionSec;
+            }
             video.play().catch(() => {});
           },
           { once: true },
@@ -113,22 +129,50 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
         hlsRef.current = null;
       }
     };
-  }, [episode.videoUrl, isLocked]);
+  }, [episode.videoUrl, episode.id, isLocked]);
 
-  // Progress tracking
+  // Progress tracking — updates UI bar + throttled localStorage save
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
+    const saveNow = () => {
+      if (video.duration > 0 && !isLocked) {
+        saveEpisodeProgress({
+          episodeId: episode.id,
+          seriesSlug,
+          positionSec: video.currentTime,
+          durationSec: video.duration,
+          completed: video.currentTime >= video.duration * 0.95,
+          lastWatchedAt: new Date().toISOString(),
+        });
+        lastSavedAt.current = Date.now();
+      }
+    };
+
     const onTimeUpdate = () => {
       if (video.duration > 0) {
         setProgress(video.currentTime / video.duration);
+        // Throttle save to every 10 seconds
+        if (Date.now() - lastSavedAt.current >= 10_000) {
+          saveNow();
+        }
       }
     };
 
     video.addEventListener('timeupdate', onTimeUpdate);
-    return () => video.removeEventListener('timeupdate', onTimeUpdate);
-  }, []);
+
+    // Flush on page hide / unload
+    const onFlush = () => saveNow();
+    window.addEventListener('pagehide', onFlush);
+    window.addEventListener('beforeunload', onFlush);
+
+    return () => {
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      window.removeEventListener('pagehide', onFlush);
+      window.removeEventListener('beforeunload', onFlush);
+    };
+  }, [episode.id, seriesSlug, isLocked]);
 
   // Wheel navigation (desktop)
   const onWheel = useCallback(

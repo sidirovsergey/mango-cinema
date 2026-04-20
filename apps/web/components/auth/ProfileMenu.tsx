@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { logout, useUser } from '@/lib/user-store';
 import { openAuthModal, openCoinStoreModal, openSubscriptionModal } from '@/lib/modal-store';
 
@@ -61,6 +62,17 @@ export default function ProfileMenu() {
               +7 ••• ••• {lastFour}
             </p>
           </div>
+
+          {/* My Profile */}
+          <Link
+            href="/profile"
+            onClick={() => setOpen(false)}
+            className="flex w-full items-center px-4 py-3 hover:bg-zinc-800 transition-colors text-sm text-zinc-300"
+          >
+            Мой профиль
+          </Link>
+
+          <div className="border-t border-zinc-800 my-1" />
 
           {/* Subscription row */}
           <button

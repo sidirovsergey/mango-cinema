@@ -9,7 +9,13 @@ const GlobalModals = dynamic(() => import('@/components/auth/GlobalModals'), { s
 
 export const metadata: Metadata = {
   title: 'Mango Cinema',
-  description: 'Вертикальные AI-микродрамы',
+  description: 'Вертикальные AI-микросериалы',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'Mango',
+    statusBarStyle: 'black-translucent',
+  },
 };
 
 export const viewport: Viewport = {
@@ -17,7 +23,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: '#000000',
+  themeColor: '#FF6B35',
 };
 
 export default function RootLayout({

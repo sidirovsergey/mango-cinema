@@ -2,6 +2,9 @@ import { CATALOG } from '@/lib/catalog';
 import Header from '@/components/Header';
 import HeroBanner from '@/components/HeroBanner';
 import ContentRow from '@/components/ContentRow';
+import dynamic from 'next/dynamic';
+
+const HomeClientRows = dynamic(() => import('@/components/HomeClientRows'), { ssr: false });
 
 export default function CatalogPage() {
   const featured = CATALOG[0]!;
@@ -24,6 +27,9 @@ export default function CatalogPage() {
 
       {/* Content rows */}
       <main className="py-8">
+        {/* Client-side: Continue Watching + My List (only shown if data exists) */}
+        <HomeClientRows />
+
         <ContentRow title="Популярное сейчас" series={popular} />
         <ContentRow title="Новинки" series={newReleases} />
         <ContentRow title="Драма и романтика" series={dramaRomance} />

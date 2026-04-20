@@ -4,6 +4,7 @@ import Image from 'next/image';
 import { CATALOG } from '@/lib/catalog';
 import Header from '@/components/Header';
 import EpisodeListItem from '@/components/EpisodeListItem';
+import WatchlistButton from '@/components/WatchlistButton';
 
 interface Props {
   params: { slug: string };
@@ -55,7 +56,7 @@ export default function SeriesPage({ params }: Props) {
       </div>
 
       {/* CTA */}
-      <div className="mx-auto max-w-lg px-4 pt-5 pb-2">
+      <div className="mx-auto max-w-lg px-4 pt-5 pb-2 flex flex-col gap-3">
         <Link
           href={`/watch/${series.slug}?ep=1`}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-mango py-3.5 text-base font-bold text-white shadow-lg active:scale-95 transition-transform"
@@ -65,6 +66,7 @@ export default function SeriesPage({ params }: Props) {
           </svg>
           Смотреть
         </Link>
+        <WatchlistButton slug={series.slug} />
       </div>
 
       {/* Episode list */}
