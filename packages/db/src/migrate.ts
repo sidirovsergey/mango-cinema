@@ -30,7 +30,8 @@ async function main(): Promise<void> {
 
 const isDirectRun =
   process.argv[1] !== undefined &&
-  path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
+  path.resolve(process.argv[1]).toLowerCase() ===
+    path.resolve(fileURLToPath(import.meta.url)).toLowerCase();
 
 if (isDirectRun) {
   main().catch((err) => {
