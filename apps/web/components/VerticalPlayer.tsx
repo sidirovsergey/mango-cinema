@@ -2,10 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import type { Episode, Series } from '@/lib/catalog';
 import { canWatchEpisode, useUser } from '@/lib/user-store';
 import EpisodePaywall from '@/components/auth/EpisodePaywall';
 import { getEpisodeProgress, saveEpisodeProgress } from '@/lib/progress-store';
+import { useEpisodeStats, toggleLike, hasLiked, incrementView } from '@/lib/social-store';
+import { showToast } from '@/lib/toast-store';
+
+const CommentsSheet = dynamic(() => import('@/components/social/CommentsSheet'), { ssr: false });
 
 interface Props {
   episodes: Episode[];
@@ -25,9 +30,20 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
   const touchStartY = useRef(0);
   const wheelCooldown = useRef(false);
   const lastSavedAt = useRef(0);
+  const viewedEpisodes = useRef<Set<string>>(new Set());
 
   const episode = episodes[index]!;
   const isLocked = !canWatchEpisode(episode, user);
+
+  // Social state
+  const stats = useEpisodeStats(episode.id);
+  const [liked, setLiked] = useState(() => hasLiked(episode.id));
+  const [commentsOpen, setCommentsOpen] = useState(false);
+
+  // Sync liked state when episode changes
+  useEffect(() => {
+    setLiked(hasLiked(episode.id));
+  }, [episode.id]);
 
   const goTo = useCallback(
     (next: number) => {
@@ -173,6 +189,37 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
       window.removeEventListener('beforeunload', onFlush);
     };
   }, [episode.id, seriesSlug, isLocked]);
+
+  // Increment view count once per episode session
+  useEffect(() => {
+    if (!isLocked && !viewedEpisodes.current.has(episode.id)) {
+      viewedEpisodes.current.add(episode.id);
+      incrementView(episode.id);
+    }
+  }, [episode.id, isLocked]);
+
+  // Helpers for social actions
+  function formatCount(n: number): string {
+    if (n < 1000) return String(n);
+    if (n < 10_000) return (n / 1000).toFixed(1).replace('.0', '') + 'K';
+    if (n < 1_000_000) return Math.round(n / 1000) + 'K';
+    return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M';
+  }
+
+  const handleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = toggleLike(episode.id);
+    setLiked(next);
+  };
+
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `https://mango-cinema-web.vercel.app/watch/${seriesSlug}?ep=${episode.number}`;
+    navigator.clipboard.writeText(url).then(
+      () => showToast('Ссылка скопирована'),
+      () => showToast('Ссылка скопирована'),
+    );
+  };
 
   // Wheel navigation (desktop)
   const onWheel = useCallback(
@@ -322,37 +369,55 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
 
         {/* Right-side action icons */}
         <div className="absolute bottom-24 right-3 z-20 flex flex-col items-center gap-5">
+          {/* Like */}
           <button
-            className="flex flex-col items-center gap-1 text-white"
+            className="flex flex-col items-center gap-1"
             aria-label="Нравится"
-            onClick={(e) => e.stopPropagation()}
+            onClick={handleLike}
           >
-            <svg className="h-7 w-7" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            <svg
+              className="h-7 w-7 transition-colors"
+              style={{ color: liked ? '#FF3B5C' : 'white' }}
+              fill={liked ? 'currentColor' : 'none'}
+              stroke="currentColor"
+              strokeWidth={liked ? 0 : 2}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
             </svg>
-            <span className="text-xs font-semibold">12K</span>
+            <span className="text-xs font-semibold text-white/90">
+              {formatCount(stats.likes)}
+            </span>
           </button>
 
+          {/* Comment */}
           <button
             className="flex flex-col items-center gap-1 text-white"
             aria-label="Комментарии"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); setCommentsOpen(true); }}
           >
             <svg className="h-7 w-7" fill="currentColor" viewBox="0 0 24 24">
               <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
             </svg>
-            <span className="text-xs font-semibold">348</span>
+            <span className="text-xs font-semibold text-white/90">
+              {formatCount(stats.commentCount)}
+            </span>
           </button>
 
+          {/* Share */}
           <button
             className="flex flex-col items-center gap-1 text-white"
             aria-label="Поделиться"
-            onClick={(e) => e.stopPropagation()}
+            onClick={handleShare}
           >
             <svg className="h-7 w-7" fill="currentColor" viewBox="0 0 24 24">
               <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z" />
             </svg>
-            <span className="text-xs font-semibold">Поделиться</span>
+            <span className="text-xs font-semibold text-white/90">Поделиться</span>
           </button>
 
           {/* Episode dots */}
@@ -391,6 +456,15 @@ export default function VerticalPlayer({ episodes, startIndex = 0, seriesSlug, s
           </div>
         )}
       </div>
+
+      {/* Comments bottom-sheet — rendered outside the 9:16 frame so it fills the screen */}
+      <CommentsSheet
+        open={commentsOpen}
+        onClose={() => setCommentsOpen(false)}
+        episodeId={episode.id}
+        seriesTitle={series.title}
+        episodeTitle={episode.title}
+      />
     </div>
   );
 }

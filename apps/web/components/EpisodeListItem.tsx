@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
 import type { Episode } from '@/lib/catalog';
+import { useEpisodeStats } from '@/lib/social-store';
 
 interface Props {
   episode: Episode;
@@ -12,7 +15,15 @@ function formatDuration(seconds: number): string {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+function formatCount(n: number): string {
+  if (n < 1000) return String(n);
+  if (n < 10_000) return (n / 1000).toFixed(1).replace('.0', '') + 'K';
+  if (n < 1_000_000) return Math.round(n / 1000) + 'K';
+  return (n / 1_000_000).toFixed(1).replace('.0', '') + 'M';
+}
+
 export default function EpisodeListItem({ episode, seriesSlug }: Props) {
+  const stats = useEpisodeStats(episode.id);
   return (
     <Link
       href={`/watch/${seriesSlug}?ep=${episode.number}`}
@@ -28,6 +39,11 @@ export default function EpisodeListItem({ episode, seriesSlug }: Props) {
         <p className="truncate text-sm font-medium text-white">{episode.title}</p>
         <p className="mt-0.5 text-xs text-white/40">{formatDuration(episode.duration)}</p>
       </div>
+
+      {/* social counts */}
+      <span className="shrink-0 text-xs text-zinc-500">
+        ❤ {formatCount(stats.likes)} · 💬 {formatCount(stats.commentCount)}
+      </span>
 
       {/* badge */}
       {episode.isFree ? (

@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 const inter = Inter({ subsets: ['latin', 'cyrillic'] });
 
 const GlobalModals = dynamic(() => import('@/components/auth/GlobalModals'), { ssr: false });
+const Toast = dynamic(() => import('@/components/Toast'), { ssr: false });
 
 export const metadata: Metadata = {
   title: 'Mango Cinema',
@@ -36,6 +37,7 @@ export default function RootLayout({
       <body className={inter.className}>
         {children}
         <GlobalModals />
+        <Toast />
       </body>
     </html>
   );
