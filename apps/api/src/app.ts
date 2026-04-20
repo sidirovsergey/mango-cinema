@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import { createLogger } from './logger.js';
 import type { Config } from './config.js';
 import { dbPlugin } from './plugins/db.js';
+import { redisPlugin } from './plugins/redis.js';
 import { healthPlugin } from './plugins/health.js';
 
 export interface BuildAppOptions {
@@ -22,6 +23,9 @@ export async function buildApp(
 
   if (opts.registerDb) {
     await app.register(dbPlugin);
+  }
+  if (opts.registerRedis) {
+    await app.register(redisPlugin);
   }
 
   await app.register(healthPlugin);

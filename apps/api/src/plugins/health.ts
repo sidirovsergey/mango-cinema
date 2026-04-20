@@ -21,6 +21,18 @@ export const healthPlugin: FastifyPluginAsync = async (app: FastifyInstance) => 
       }
     }
 
+    if ('redis' in app) {
+      try {
+        const pong = await app.redis.ping();
+        body.redis = pong === 'PONG' ? 'ok' : 'fail';
+        if (body.redis === 'fail') body.status = 'degraded';
+      } catch (err) {
+        app.log.error({ err }, 'redis healthcheck failed');
+        body.redis = 'fail';
+        body.status = 'degraded';
+      }
+    }
+
     return reply.code(body.status === 'ok' ? 200 : 503).send(body);
   });
 };
